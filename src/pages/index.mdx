@@ -5,14 +5,13 @@ title: ModelMirror
 
 # Pre-registered AI predictions for the highly demanding of rigor
 
-Benchmarks leak. Once a test set is public, it ends up in the next model's training data and the score stops meaning what it meant. ModelMirror builds evaluations that cannot leak by construction: models predict real-world events before they happen, the predictions are committed to a public, timestamped ledger, and the world supplies the answer key.
+Machine learning isn't in Kansas anymore. Its not as simple as evaluating on a static held-out test set. Once a test set is public, it ends up in the next model's training data and the score stops meaning what it meant before. ModelMirror builds evaluations that cannot leak by construction: models predict real-world events before they happen, the predictions are committed to a public, timestamped ledger, and the world supplies the answers.
 
-## How we work
+## How it works
 
 - **Pre-registration by timestamp.** Predictions are committed to a public git repository before outcomes exist. What a model knew is fixed by when it wrote, not by restricting what it could read.
-- **A public ledger.** Every prediction, evaluation, and outcome is a file in a public repository. Verification needs no trust in us.
-- **Cross-only evaluation.** Several frontier models compete; each grades the others and never itself.
-- **Underclaiming.** Small samples are reported as small samples. Nothing is published as a result until it has resolved under the frozen process.
+- **A public ledger.** Every prediction, evaluation, and outcome is a file in a public repository. You don't need to trust us, you can verify.
+- **Underclaiming.** Small samples are reported as small samples. We want to focus on sound methodology and careful interpretation, not virality.
 
 ## Projects
 
