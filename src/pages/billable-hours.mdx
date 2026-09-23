@@ -1,0 +1,66 @@
+---
+layout: ../layouts/Page.astro
+title: AI and the billable hour
+description: A small economic model of what AI does to law firms that sell hours, and why the answer turns on whether AI can close the expertise gap on the hardest work.
+---
+import source from "../data/mmbillhr/source.json";
+import Chart from "../components/Chart.astro";
+import CsvTable from "../components/CsvTable.astro";
+
+Law firms sell hours. If AI makes those hours fewer, what happens to the firms depends on who captures the savings: the firm through higher effective rates, the client through lower bills, or the client's own legal department by bringing the work in-house. This page presents a small model of that question. It is illustrative, not calibrated to data, and it exists mainly to make one assumption visible.
+
+## The assumption that matters
+
+Most discussion of AI and law assumes that routine work gets automated while judgment-heavy, high-stakes work is protected by expertise. The model can be run either way. The parameter that governs it, called <code>omega</code>, sets how quickly AI's leveling of expertise fades as matters get harder. At one end, leveling disappears entirely on the most specialised work; at the other, it applies just as much to a Supreme Court brief as to a lease.
+
+<Chart name="headline_leveling" alt="Four line charts, one per line of work, showing the long-run change in profit per partner as expertise leveling rises from 0 to 0.8. Each panel has two lines: one where leveling fades to nothing on the hardest work and one where it applies equally at every level. The lines diverge most for premium work.">
+  Long-run change in profit per partner as AI's leveling of expertise increases, for four lines of work. Grey: leveling fades to zero on the hardest matters. Brass: leveling applies at every level of complexity. All other parameters at their defaults.
+</Chart>
+
+Under the conventional assumption, premium practices barely move. If leveling reaches the hardest work, they lose a fifth of profit per partner at high leveling, and elite commodity practices lose more than half. Which assumption is right is an empirical question, and it is the one [FedCourtsAI](https://fedcourts.ai) is built to test: whether frontier models can reason about the most specialised legal work there is, measured against outcomes rather than by opinion.
+
+## Results at the defaults
+
+<CsvTable file="01_baseline" cols={["segment","price","book","revenue","assoc_hours","partner_hours","ppp"]} pct={["price","book","revenue","assoc_hours","partner_hours","ppp"]} labels={{segment:"Line of work", price:"Price", book:"Book retained", revenue:"Revenue", assoc_hours:"Associate hours", partner_hours:"Partner hours", ppp:"Profit per partner"}} />
+
+Long-run changes from the pre-AI baseline with every parameter at its default, including the conventional fade in leveling. Prices fall everywhere, most where competition is sharpest. Associate hours fall in every line; that is the billable-hours model absorbing the productivity gain. Premium work holds up, but not because of its AI exposure.
+
+## What drives the premium result
+
+<Chart name="sensitivity_premium" alt="A tornado chart of premium profit per partner. Each bar shows how far the result moves when one parameter is set to the low or high end of its range with all others at default. The insurance value of outside counsel and the pass-through of savings to price dominate; the AI parameters themselves are near the bottom." height={560}>
+  Sensitivity of premium profit per partner to each parameter, one at a time, with the rest at their defaults. The ranges are judgment calls and are printed on the axis.
+</Chart>
+
+Two things protect premium practices in the model, and neither is about the technology. The first is the insurance value clients place on outside counsel for high-stakes matters: the reputational and liability cover that an in-house team cannot provide, whatever tools it has. The second is pricing power, the share of cost savings the firm keeps rather than passes to clients. Move either of those and the premium result moves with it; move the AI speed-up itself and little changes. What AI does is set the size of the pie that these two parameters divide.
+
+## The elite firm
+
+Most large firms are a mix of premium and commodity work. Here the two lines are combined by revenue share, with premium work assumed to keep three-quarters of its cost savings and commodity work assumed to pass all of them on.
+
+<CsvTable file="02_elite_firm_mix" cols={["premium_share","revenue","ppp","assoc_hours","partner_hours","leverage0","leverage1"]} pct={["revenue","ppp","assoc_hours","partner_hours"]} labels={{premium_share:"Premium share of revenue", revenue:"Revenue", ppp:"Profit per partner", assoc_hours:"Associate hours", partner_hours:"Partner hours", leverage0:"Leverage before", leverage1:"Leverage after"}} />
+
+Leverage, the ratio of associate to partner hours, falls by roughly a quarter regardless of mix. In a model with no dynamics that is a steady state; in a real firm it is a training pipeline problem, which the model does not address.
+
+## The model
+
+Each line of work is solved on its own. A baseline matter takes one partner hour and a fixed number of associate hours, and its price is the sum of the two bill rates. AI then acts in four steps.
+
+1. **Hours compression.** A share of each tier's tasks is exposed to AI, and exposed tasks run several times faster. This gives a compression factor for associate hours, for partner hours, and, scaled by an in-house adoption parameter, for the client's own legal department.
+2. **Make or buy.** Matters vary in complexity and stakes. For each, the client compares the outside price against the cost of doing it in-house, which rises with complexity because of the expertise gap, less whatever leveling AI provides at that complexity, plus the insurance value of outside counsel. Cheaper in-house work and a larger set of clients able to insource shrink the firm's book.
+3. **Pricing.** Firms compete on price; the pre-AI price is treated as an equilibrium and costs are backed out from it. The post-AI price is the new equilibrium under full pass-through, tempered by a pass-through parameter that stands in for pricing power the model does not derive.
+4. **Outcomes.** Demand responds to price, the retained book responds to insourcing, and the result is a set of long-run changes in price, revenue, hours by tier, leverage, and profit per partner. A last check asks whether a single firm could profit by undercutting the assumed price; where it could, the assumed pricing power is not sustainable.
+
+The full specification, the code, every table, and the parameter defaults are in the [mmbillhr repository](https://github.com/{source.repo}). This page reads its numbers from commit <code>{source.sha.slice(0, 7)}</code>.
+
+<CsvTable file="04_grid_omega_x_delta_ppp_premium" labels={{omega:"Fade (omega) \\ Leveling (delta)"}} pct={["0.0","0.2","0.4","0.6","0.8"]} />
+
+Premium profit per partner across the two leveling parameters. Down the rows, leveling fades faster with complexity; across the columns, there is more of it. The conventional view is the bottom rows; the question is whether the top row is closer to the truth.
+
+## Limitations
+
+- **Nothing is calibrated.** Every parameter is a plausible guess. The tables are for reasoning about mechanisms, not for forecasting any firm's revenue.
+- **Static and long-run.** There is no adoption path, no transition, and no account of what happens to associates while leverage falls.
+- **Pricing power is assumed, not derived.** The pass-through parameter is reduced-form. The sustainability check flags where it is inconsistent with competition, but the model does not solve the game that would determine it.
+- **Exposure does not vary within a line of work.** A premium matter at the top of its complexity range gets the same AI exposure as one at the bottom.
+- **No AI costs, no entry or exit, no training pipeline.**
+- **Not advice.** This is an economic sketch by a small research project, not guidance for any firm, client, or investment. See the [terms](/terms).
