@@ -1,0 +1,25 @@
+---
+// Render one CSV from src/data/mmbillhr as a table. Columns named in `pct`
+// are shown as signed percentages; everything else is shown as-is, rounded.
+const csvs = import.meta.glob("../data/mmbillhr/*.csv", { query: "?raw", import: "default", eager: true });
+const { file, pct = [], cols, labels = {} } = Astro.props;
+const text = csvs[`../data/mmbillhr/${file}.csv`].trim();
+const [head, ...body] = text.split("\n").map((l) => l.split(","));
+const keep = cols ?? head;
+const idx = keep.map((c) => head.indexOf(c));
+const fmt = (c, v) => {
+  if (v === "" || v === "nan") return "n/a";
+  const n = Number(v);
+  if (Number.isNaN(n)) return v;
+  if (pct.includes(c)) return `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n * 100))}%`;
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+};
+---
+<div class="table-scroll">
+  <table class="data">
+    <thead><tr>{keep.map((c) => <th>{labels[c] ?? c}</th>)}</tr></thead>
+    <tbody>
+      {body.map((row) => <tr>{idx.map((i, j) => <td class={j === 0 ? "" : "num"}>{fmt(keep[j], row[i])}</td>)}</tr>)}
+    </tbody>
+  </table>
+</div>
