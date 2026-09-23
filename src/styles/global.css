@@ -69,3 +69,13 @@ main { padding: 2.5rem 0 4rem; }
   h1 { font-size: 1.65rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Data tables and generated charts (billable-hours page) */
+.table-scroll { overflow-x: auto; margin: 1.25rem 0 0.75rem; }
+table.data { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.35; }
+table.data th, table.data td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+table.data th { font-weight: 560; color: var(--muted); border-bottom-color: var(--ink); }
+table.data td.num, table.data th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+figure.chart { margin: 1.75rem 0; }
+figure.chart img { display: block; width: 100%; height: auto; }
+figure.chart figcaption { margin-top: 0.6rem; font-size: 0.9rem; color: var(--muted); }
