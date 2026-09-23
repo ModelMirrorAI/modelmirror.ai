@@ -1,0 +1,11 @@
+---
+// A generated chart with light and dark variants, from public/charts.
+const { name, alt, width = 720, height = 540 } = Astro.props;
+---
+<figure class="chart">
+  <picture>
+    <source srcset={`/charts/${name}_dark.svg`} media="(prefers-color-scheme: dark)" />
+    <img src={`/charts/${name}_light.svg`} alt={alt} width={width} height={height} loading="lazy" />
+  </picture>
+  <figcaption><slot /></figcaption>
+</figure>
