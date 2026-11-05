@@ -133,7 +133,10 @@ const role = (a: any, state: string) =>
             <h2 id="map-h">How far each office has gone</h2>
             <p>
               Each square is one state, shaded by the highest step its office reached in the last
-              {" "}{board.window_days} days. The number in the square is the same step. Select a state to see its actions.
+              {" "}{board.window_days} days. The number in the square is the same step. Blue offices have signed letters or joined actions
+              other states lead; orange ones took the initiative, opening their own investigation, reaching a
+              settlement, suing, or leading a multistate suit.
+              Select a state to see its actions.
             </p>
             <figure class="ag-map">
               <svg
@@ -163,8 +166,13 @@ const role = (a: any, state: string) =>
               <figcaption>
                 <ul class="legend">
                   {TIERS.map((t) => (
-                    <li><span class={`swatch t${t.tier}`} aria-hidden="true">{t.tier}</span> <strong>{t.label}</strong> {t.what}</li>
+                    <>
+                      {t.tier === 1 && <li class="group">Joins other states</li>}
+                      {t.tier === 3 && <li class="group">Takes the initiative</li>}
+                      <li><span class={`swatch t${t.tier}`} aria-hidden="true">{t.tier}</span> <strong>{t.label}</strong> {t.what}</li>
+                    </>
                   ))}
+                  <li class="group">Also marked</li>
                   <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>New attorney general after the 2026 midterms</strong>{changing === 0 && <> (none recorded yet)</>}</li>
                   <li><span class="swatch dc-key" aria-hidden="true"></span> <strong>AI data center of {gw(board.data_center_threshold_mw)} or more</strong>{hosting === 0 && <> (none recorded yet)</>}</li>
                 </ul>
@@ -281,19 +289,19 @@ const role = (a: any, state: string) =>
 <style>
   .ag-map {
     --t0: #e4e2dc; --t0-ink: #1c1f26;
-    --t1: #86b6ef; --t1-ink: #1c1f26;
-    --t2: #3987e5; --t2-ink: #ffffff;
-    --t3: #1c5cab; --t3-ink: #ffffff;
-    --t4: #0d366b; --t4-ink: #ffffff;
+    --t1: #c4d7ee; --t1-ink: #1c1f26;
+    --t2: #8fb0d9; --t2-ink: #1c1f26;
+    --t3: #c94f22; --t3-ink: #ffffff;
+    --t4: #8e2a14; --t4-ink: #ffffff;
     margin: 1rem 0 1.5rem;
   }
   @media (prefers-color-scheme: dark) {
     .ag-map {
       --t0: #2a2c33; --t0-ink: #e6e3da;
-      --t1: #184f95; --t1-ink: #ffffff;
-      --t2: #2a78d6; --t2-ink: #ffffff;
-      --t3: #6da7ec; --t3-ink: #131419;
-      --t4: #b7d3f6; --t4-ink: #131419;
+      --t1: #2b3f5c; --t1-ink: #e6e3da;
+      --t2: #45689a; --t2-ink: #ffffff;
+      --t3: #e2683a; --t3-ink: #131419;
+      --t4: #ffa57a; --t4-ink: #131419;
     }
   }
   .ag-map svg { width: 100%; max-width: 44rem; height: auto; display: block; }
@@ -324,12 +332,9 @@ const role = (a: any, state: string) =>
   .swatch.t3 { background: var(--t3); color: var(--t3-ink); }
   .swatch.t4 { background: var(--t4); color: var(--t4-ink); }
   .tile .dc { stroke: none; }
-  .t0 .dc, .t1 .dc { fill: var(--t0-ink); }
-  .t2 .dc, .t3 .dc, .t4 .dc { fill: var(--t2-ink); }
-  @media (prefers-color-scheme: dark) {
-    .t0 .dc, .t1 .dc, .t2 .dc { fill: #ffffff; }
-    .t3 .dc, .t4 .dc { fill: #131419; }
-  }
+  .t0 .dc { fill: var(--t0-ink); } .t1 .dc { fill: var(--t1-ink); } .t2 .dc { fill: var(--t2-ink); }
+  .t3 .dc { fill: var(--t3-ink); } .t4 .dc { fill: var(--t4-ink); }
+  .legend .group { margin: 0.6rem 0 0.15rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
   .dc-key { width: 0.6rem; height: 0.6rem; border-radius: 0; background: var(--ink); margin: 0 0.4rem; }
   .dcs { font-size: 0.9rem; margin: 0 0 0.5rem; }
   .intro { font-size: 1.05rem; }
