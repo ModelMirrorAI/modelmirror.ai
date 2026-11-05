@@ -101,27 +101,50 @@ const tileLabel = (state: string) => {
 };
 const changing = offices.filter((o: any) => o.transition).length;
 const hosting = offices.filter((o: any) => (o.data_center_ids ?? []).length > 0).length;
-const initiative = (o: any) => (o?.tier ?? 0) >= 3;
+const ledOrAlone = (o: any) => (o?.tier ?? 0) >= 3;
 const hostsCenter = (o: any) => (o?.data_center_ids ?? []).length > 0;
+// The board names the one action whose removal lowers the most offices' steps,
+// and each lowered office's step without it. An older board carries neither
+// the pivot nor the large-coalition split, and the page then leaves both out.
+const pivot = board?.pivot ?? null;
+const pivotAction = pivot ? byId.get(pivot.action_id) : null;
+const pivotStep = (state: string): number | undefined => pivot?.offices?.[state];
+const largeAt: number | null = board?.large_coalition_offices ?? null;
 // Each lens outlines the offices it matches and fades the rest; CSS reads the
-// checked radio, so the map works without JavaScript.
+// checked radio, so the map works without JavaScript. The pivot lens fades
+// nothing: it re-shades the offices whose step falls without that action.
 const LENSES = [
-  { id: "initiative", label: "Took the initiative", what: "step 3 or 4", match: (o: any) => initiative(o) },
+  { id: "led", label: "Led or acted alone", what: "step 3 or 4", match: (o: any) => ledOrAlone(o) },
   {
     id: "leverage",
-    label: "Took the initiative and hosts a large AI data center",
+    label: "Led or acted alone, and hosts a large AI data center",
     what: "step 3 or 4, and a project of 1 GW or more",
-    match: (o: any) => initiative(o) && hostsCenter(o),
+    match: (o: any) => ledOrAlone(o) && hostsCenter(o),
   },
   {
     id: "turnover",
-    label: "Took the initiative, new attorney general coming in",
+    label: "Led or acted alone, new attorney general coming in",
     what: "step 3 or 4, and the office changes hands after the 2026 midterms",
-    match: (o: any) => initiative(o) && Boolean(o?.transition),
+    match: (o: any) => ledOrAlone(o) && Boolean(o?.transition),
   },
+  ...(pivot
+    ? [{
+        id: "pivot",
+        label: "Steps without the filing most steps rest on",
+        what: "",
+        match: (o: any) => pivotStep(o.state) !== undefined,
+      }]
+    : []),
 ].map((l) => ({ ...l, states: offices.filter(l.match).map((o: any) => o.state as string) }));
 const lensesFor = (state: string) =>
   LENSES.filter((l) => l.states.includes(state)).map((l) => `in-${l.id}`).join(" ");
+// The offices whose step falls without the pivot, grouped by the step they fall to.
+const pivotFalls = pivot
+  ? [4, 3, 2, 1, 0]
+      .map((to) => ({ to, states: Object.keys(pivot.offices).filter((st) => pivot.offices[st] === to).sort() }))
+      .filter((g) => g.states.length > 0)
+  : [];
+const tierLabel = (n: number) => TIERS.find((t) => t.tier === n)?.label ?? "None recorded";
 const role = (a: any, state: string) =>
   a.states.length === 1 ? "Alone" : a.lead === state ? "Led" : "Joined";
 ---
@@ -154,9 +177,9 @@ const role = (a: any, state: string) =>
             <h2 id="map-h">How far each office has gone</h2>
             <p>
               Each square is one state, shaded by the highest step its office reached in the last
-              {" "}{board.window_days} days. The number in the square is the same step. Blue offices have signed letters or joined actions
-              other states lead; orange ones took the initiative, opening their own investigation, reaching a
-              settlement, suing, or leading a multistate suit.
+              {" "}{board.window_days} days. The number in the square is the same step. Blue offices signed letters or joined
+              actions other states lead; orange ones led or acted alone: their own investigation, settlement or
+              suit, or leading a multistate suit.
               Select a state to see its actions.
             </p>
             <fieldset class="lenses">
@@ -178,35 +201,52 @@ const role = (a: any, state: string) =>
                 {tiles.map(({ state, x, y }) => {
                   const o = byState.get(state);
                   const tier = o?.tier ?? 0;
-                  return (
-                    <a href={`#ag-${state}`} aria-label={tileLabel(state)} class={`tile t${tier} ${lensesFor(state)}`}>
-                      <title>{tileLabel(state)}</title>
+                  const without = pivotStep(state);
+                  const face = (n: number, cls: string) => (
+                    <g class={`${cls} t${n}`}>
                       <rect x={x} y={y} width={TILE} height={TILE} rx="4" />
                       <text x={x + TILE / 2} y={y + 23} class="code" text-anchor="middle">{state}</text>
-                      <text x={x + TILE / 2} y={y + 44} class="num" text-anchor="middle">{tier}</text>
+                      <text x={x + TILE / 2} y={y + 44} class="num" text-anchor="middle">{n}</text>
                       {o?.transition && (
                         <circle cx={x + TILE - 7} cy={y + 7} r="4.5" class="ring" />
                       )}
                       {(o?.data_center_ids ?? []).length > 0 && (
                         <rect x={x + 4} y={y + 4} width="7" height="7" class="dc" />
                       )}
+                    </g>
+                  );
+                  return (
+                    <a href={`#ag-${state}`} aria-label={tileLabel(state)} class={`tile ${lensesFor(state)}`}>
+                      <title>{tileLabel(state)}</title>
+                      {face(tier, "face")}
+                      {without !== undefined && face(without, "alt")}
                       <rect x={x - 2.5} y={y - 2.5} width={TILE + 5} height={TILE + 5} rx="6" class="box" />
                     </a>
                   );
                 })}
               </svg>
               <figcaption>
-                {LENSES.map((l) => (
+                {LENSES.filter((l) => l.id !== "pivot").map((l) => (
                   <p class={`lens-note lens-note-${l.id}`}>
                     <strong>{l.label}</strong> ({l.what}):{" "}
                     {l.states.length === 0 ? "none on record." : l.states.map((st) => NAMES[st] ?? st).join(", ") + "."}
                   </p>
                 ))}
+                {pivot && (
+                  <p class="lens-note lens-note-pivot">
+                    <strong>Without <a href={pivotAction?.sources?.[0]}>{pivot.title}</a></strong>
+                    {pivotAction && <> ({pivotAction.states.length} offices took part)</>}, {pivot.dropped} offices
+                    {" "}fall back:{" "}
+                    {pivotFalls.map((g, i) => (
+                      <>{i > 0 && "; "}to step {g.to}, {tierLabel(g.to)}: {g.states.map((st) => NAMES[st] ?? st).join(", ")}</>
+                    ))}.
+                  </p>
+                )}
                 <ul class="legend">
                   {TIERS.map((t) => (
                     <>
-                      {t.tier === 1 && <li class="group">Joins other states</li>}
-                      {t.tier === 3 && <li class="group">Takes the initiative</li>}
+                      {t.tier === 1 && <li class="group">Joined others</li>}
+                      {t.tier === 3 && <li class="group">Led or acted alone</li>}
                       <li><span class={`swatch t${t.tier}`} aria-hidden="true">{t.tier}</span> <strong>{t.label}</strong> {t.what}</li>
                     </>
                   ))}
@@ -222,6 +262,14 @@ const role = (a: any, state: string) =>
               none on record, not none taken. Defending a state AI law against a developer's challenge is listed with
               the office's actions but does not raise its step.
             </p>
+            {pivot && (
+              <p class="callout">
+                <strong>One filing carries much of the map.</strong> {pivot.dropped} of {offices.length} offices reach their
+                {" "}step only through <a href={pivotAction?.sources?.[0]}>{pivot.title}</a>
+                {pivotAction && <>, which {pivotAction.states.length} offices joined</>}. Choose
+                {" "}"Steps without the filing most steps rest on" above to see the map without it.
+              </p>
+            )}
           </section>
 
           <section aria-labelledby="method-h">
@@ -252,6 +300,7 @@ const role = (a: any, state: string) =>
                     <th scope="col">State</th>
                     <th scope="col">Attorney general</th>
                     <th scope="col">Step</th>
+                    {largeAt && <th scope="col">Step from own or small-group actions</th>}
                     <th scope="col">Actions in the window</th>
                     <th scope="col">Changing hands</th>
                     <th scope="col">AI data centers</th>
@@ -263,6 +312,7 @@ const role = (a: any, state: string) =>
                       <th scope="row"><a href={`#ag-${o.state}`}>{NAMES[o.state] ?? o.state}</a></th>
                       <td>{person(o.holder)}</td>
                       <td>{o.tier} · {o.tier_label}</td>
+                      {largeAt && <td>{o.tier_small_group}</td>}
                       <td>{countsText(o)}</td>
                       <td>
                         {transitionText(o) ?? "—"}
@@ -298,8 +348,17 @@ const role = (a: any, state: string) =>
                   {mine.length === 0 ? (
                     <p class="muted">No AI action on record.</p>
                   ) : (
+                    (largeAt
+                      ? [
+                          { head: "Own or small group", list: mine.filter((a: any) => !a.large_coalition) },
+                          { head: `Large coalition (${largeAt} or more offices)`, list: mine.filter((a: any) => a.large_coalition) },
+                        ].filter((g) => g.list.length > 0)
+                      : [{ head: null, list: mine }]
+                    ).map((g) => (
+                    <>
+                    {g.head && <h4>{g.head}</h4>}
                     <ul class="actions">
-                      {mine.map((a: any) => (
+                      {g.list.map((a: any) => (
                         <li class={a.in_window ? "" : "aged"}>
                           <a href={a.sources[0]}>{a.title}</a>
                           <small>
@@ -313,6 +372,8 @@ const role = (a: any, state: string) =>
                         </li>
                       ))}
                     </ul>
+                    </>
+                    ))
                   )}
                 </section>
               );
@@ -351,6 +412,7 @@ const role = (a: any, state: string) =>
   .tile:hover rect, .tile:focus rect { stroke: var(--accent); stroke-width: 4; }
   .tile:focus { outline: none; }
   .tile:focus-visible rect { stroke: var(--ink); stroke-width: 4; }
+  .tile .alt { display: none; }
   .t0 rect { fill: var(--t0); } .t0 text, .t0 .ring { fill: var(--t0-ink); stroke: var(--t0-ink); }
   .t1 rect { fill: var(--t1); } .t1 text, .t1 .ring { fill: var(--t1-ink); stroke: var(--t1-ink); }
   .t2 rect { fill: var(--t2); } .t2 text, .t2 .ring { fill: var(--t2-ink); stroke: var(--t2-ink); }
@@ -365,9 +427,13 @@ const role = (a: any, state: string) =>
   .tile .box { fill: none; stroke: none; }
   .tile { transition: opacity 0.15s; }
   .lens-note { display: none; font-size: 0.9rem; margin: 0.5rem 0 0; }
-  section:has(#lens-initiative:checked) .tile:not(.in-initiative) { opacity: 0.25; }
-  section:has(#lens-initiative:checked) .tile.in-initiative .box { stroke: var(--ink); stroke-width: 3; }
-  section:has(#lens-initiative:checked) .lens-note-initiative { display: block; }
+  section:has(#lens-led:checked) .tile:not(.in-led) { opacity: 0.25; }
+  section:has(#lens-led:checked) .tile.in-led .box { stroke: var(--ink); stroke-width: 3; }
+  section:has(#lens-led:checked) .lens-note-led { display: block; }
+  section:has(#lens-pivot:checked) .tile.in-pivot .face { display: none; }
+  section:has(#lens-pivot:checked) .tile.in-pivot .alt { display: inline; }
+  section:has(#lens-pivot:checked) .tile.in-pivot .box { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; }
+  section:has(#lens-pivot:checked) .lens-note-pivot { display: block; }
   section:has(#lens-leverage:checked) .tile:not(.in-leverage) { opacity: 0.25; }
   section:has(#lens-leverage:checked) .tile.in-leverage .box { stroke: var(--ink); stroke-width: 3; }
   section:has(#lens-leverage:checked) .lens-note-leverage { display: block; }
@@ -388,6 +454,8 @@ const role = (a: any, state: string) =>
   .tile .dc { stroke: none; }
   .t0 .dc { fill: var(--t0-ink); } .t1 .dc { fill: var(--t1-ink); } .t2 .dc { fill: var(--t2-ink); }
   .t3 .dc { fill: var(--t3-ink); } .t4 .dc { fill: var(--t4-ink); }
+  .callout { border-left: 3px solid var(--accent); padding: 0.4rem 0 0.4rem 0.8rem; margin: 1rem 0; }
+  .state h4 { margin: 0.6rem 0 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
   .legend .group { margin: 0.6rem 0 0.15rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
   .dc-key { width: 0.6rem; height: 0.6rem; border-radius: 0; background: var(--ink); margin: 0 0.4rem; }
   .dcs { font-size: 0.9rem; margin: 0 0 0.5rem; }
