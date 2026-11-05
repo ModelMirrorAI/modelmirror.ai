@@ -108,11 +108,15 @@ const hostsCenter = (o: any) => (o?.data_center_ids ?? []).length > 0;
 // the pivot nor the large-coalition split, and the page then leaves both out.
 const pivot = board?.pivot ?? null;
 const pivotAction = pivot ? byId.get(pivot.action_id) : null;
-const pivotStep = (state: string): number | undefined => pivot?.offices?.[state];
+// How many of those offices would fall to each step without it.
+const pivotFalls = pivot
+  ? [4, 3, 2, 1, 0]
+      .map((to) => ({ to, n: Object.values(pivot.offices).filter((v) => v === to).length }))
+      .filter((g) => g.n > 0)
+  : [];
 const largeAt: number | null = board?.large_coalition_offices ?? null;
 // Each lens outlines the offices it matches and fades the rest; CSS reads the
-// checked radio, so the map works without JavaScript. The pivot lens fades
-// nothing: it re-shades the offices whose step falls without that action.
+// checked radio, so the map works without JavaScript.
 const LENSES = [
   { id: "led", label: "Led or acted alone", what: "step 3 or 4", match: (o: any) => ledOrAlone(o) },
   {
@@ -127,24 +131,10 @@ const LENSES = [
     what: "step 3 or 4, and the office changes hands after the 2026 midterms",
     match: (o: any) => ledOrAlone(o) && Boolean(o?.transition),
   },
-  ...(pivot
-    ? [{
-        id: "pivot",
-        label: "Steps without the filing most steps rest on",
-        what: "",
-        match: (o: any) => pivotStep(o.state) !== undefined,
-      }]
-    : []),
 ].map((l) => ({ ...l, states: offices.filter(l.match).map((o: any) => o.state as string) }));
 const lensesFor = (state: string) =>
   LENSES.filter((l) => l.states.includes(state)).map((l) => `in-${l.id}`).join(" ");
-// The offices whose step falls without the pivot, grouped by the step they fall to.
-const pivotFalls = pivot
-  ? [4, 3, 2, 1, 0]
-      .map((to) => ({ to, states: Object.keys(pivot.offices).filter((st) => pivot.offices[st] === to).sort() }))
-      .filter((g) => g.states.length > 0)
-  : [];
-const tierLabel = (n: number) => TIERS.find((t) => t.tier === n)?.label ?? "None recorded";
+
 const role = (a: any, state: string) =>
   a.states.length === 1 ? "Alone" : a.lead === state ? "Led" : "Joined";
 ---
@@ -201,7 +191,6 @@ const role = (a: any, state: string) =>
                 {tiles.map(({ state, x, y }) => {
                   const o = byState.get(state);
                   const tier = o?.tier ?? 0;
-                  const without = pivotStep(state);
                   const face = (n: number, cls: string) => (
                     <g class={`${cls} t${n}`}>
                       <rect x={x} y={y} width={TILE} height={TILE} rx="4" />
@@ -219,29 +208,18 @@ const role = (a: any, state: string) =>
                     <a href={`#ag-${state}`} aria-label={tileLabel(state)} class={`tile ${lensesFor(state)}`}>
                       <title>{tileLabel(state)}</title>
                       {face(tier, "face")}
-                      {without !== undefined && face(without, "alt")}
                       <rect x={x - 2.5} y={y - 2.5} width={TILE + 5} height={TILE + 5} rx="6" class="box" />
                     </a>
                   );
                 })}
               </svg>
               <figcaption>
-                {LENSES.filter((l) => l.id !== "pivot").map((l) => (
+                {LENSES.map((l) => (
                   <p class={`lens-note lens-note-${l.id}`}>
                     <strong>{l.label}</strong> ({l.what}):{" "}
                     {l.states.length === 0 ? "none on record." : l.states.map((st) => NAMES[st] ?? st).join(", ") + "."}
                   </p>
                 ))}
-                {pivot && (
-                  <p class="lens-note lens-note-pivot">
-                    <strong>Without <a href={pivotAction?.sources?.[0]}>{pivot.title}</a></strong>
-                    {pivotAction && <> ({pivotAction.states.length} offices took part)</>}, {pivot.dropped} offices
-                    {" "}fall back:{" "}
-                    {pivotFalls.map((g, i) => (
-                      <>{i > 0 && "; "}to step {g.to}, {tierLabel(g.to)}: {g.states.map((st) => NAMES[st] ?? st).join(", ")}</>
-                    ))}.
-                  </p>
-                )}
                 <ul class="legend">
                   {TIERS.map((t) => (
                     <>
@@ -266,8 +244,10 @@ const role = (a: any, state: string) =>
               <p class="callout">
                 <strong>One filing carries much of the map.</strong> {pivot.dropped} of {offices.length} offices reach their
                 {" "}step only through <a href={pivotAction?.sources?.[0]}>{pivot.title}</a>
-                {pivotAction && <>, which {pivotAction.states.length} offices joined</>}. Choose
-                {" "}"Steps without the filing most steps rest on" above to see the map without it.
+                {pivotAction && <>, which {pivotAction.states.length} offices joined</>}. Without it,{" "}
+                {pivotFalls.map((g, i) => (
+                  <>{i > 0 && (i === pivotFalls.length - 1 ? " and " : ", ")}{g.n} of them would be at step {g.to}</>
+                ))}.
               </p>
             )}
           </section>
@@ -412,7 +392,6 @@ const role = (a: any, state: string) =>
   .tile:hover rect, .tile:focus rect { stroke: var(--accent); stroke-width: 4; }
   .tile:focus { outline: none; }
   .tile:focus-visible rect { stroke: var(--ink); stroke-width: 4; }
-  .tile .alt { display: none; }
   .t0 rect { fill: var(--t0); } .t0 text, .t0 .ring { fill: var(--t0-ink); stroke: var(--t0-ink); }
   .t1 rect { fill: var(--t1); } .t1 text, .t1 .ring { fill: var(--t1-ink); stroke: var(--t1-ink); }
   .t2 rect { fill: var(--t2); } .t2 text, .t2 .ring { fill: var(--t2-ink); stroke: var(--t2-ink); }
@@ -430,10 +409,6 @@ const role = (a: any, state: string) =>
   section:has(#lens-led:checked) .tile:not(.in-led) { opacity: 0.25; }
   section:has(#lens-led:checked) .tile.in-led .box { stroke: var(--ink); stroke-width: 3; }
   section:has(#lens-led:checked) .lens-note-led { display: block; }
-  section:has(#lens-pivot:checked) .tile.in-pivot .face { display: none; }
-  section:has(#lens-pivot:checked) .tile.in-pivot .alt { display: inline; }
-  section:has(#lens-pivot:checked) .tile.in-pivot .box { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; }
-  section:has(#lens-pivot:checked) .lens-note-pivot { display: block; }
   section:has(#lens-leverage:checked) .tile:not(.in-leverage) { opacity: 0.25; }
   section:has(#lens-leverage:checked) .tile.in-leverage .box { stroke: var(--ink); stroke-width: 3; }
   section:has(#lens-leverage:checked) .lens-note-leverage { display: block; }
