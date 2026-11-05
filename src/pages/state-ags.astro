@@ -101,6 +101,27 @@ const tileLabel = (state: string) => {
 };
 const changing = offices.filter((o: any) => o.transition).length;
 const hosting = offices.filter((o: any) => (o.data_center_ids ?? []).length > 0).length;
+const initiative = (o: any) => (o?.tier ?? 0) >= 3;
+const hostsCenter = (o: any) => (o?.data_center_ids ?? []).length > 0;
+// Each lens outlines the offices it matches and fades the rest; CSS reads the
+// checked radio, so the map works without JavaScript.
+const LENSES = [
+  { id: "initiative", label: "Took the initiative", what: "step 3 or 4", match: (o: any) => initiative(o) },
+  {
+    id: "leverage",
+    label: "Took the initiative and hosts a large AI data center",
+    what: "step 3 or 4, and a project of 1 GW or more",
+    match: (o: any) => initiative(o) && hostsCenter(o),
+  },
+  {
+    id: "turnover",
+    label: "Took the initiative, new attorney general coming in",
+    what: "step 3 or 4, and the office changes hands after the 2026 midterms",
+    match: (o: any) => initiative(o) && Boolean(o?.transition),
+  },
+].map((l) => ({ ...l, states: offices.filter(l.match).map((o: any) => o.state as string) }));
+const lensesFor = (state: string) =>
+  LENSES.filter((l) => l.states.includes(state)).map((l) => `in-${l.id}`).join(" ");
 const role = (a: any, state: string) =>
   a.states.length === 1 ? "Alone" : a.lead === state ? "Led" : "Joined";
 ---
@@ -138,6 +159,16 @@ const role = (a: any, state: string) =>
               settlement, suing, or leading a multistate suit.
               Select a state to see its actions.
             </p>
+            <fieldset class="lenses">
+              <legend>Highlight</legend>
+              <label><input type="radio" name="lens" id="lens-none" checked /> All offices</label>
+              {LENSES.map((l) => (
+                <label>
+                  <input type="radio" name="lens" id={`lens-${l.id}`} />
+                  {" "}{l.label} <span class="count">({l.states.length})</span>
+                </label>
+              ))}
+            </fieldset>
             <figure class="ag-map">
               <svg
                 viewBox={`0 0 ${12 * STEP} ${8 * STEP}`}
@@ -148,7 +179,7 @@ const role = (a: any, state: string) =>
                   const o = byState.get(state);
                   const tier = o?.tier ?? 0;
                   return (
-                    <a href={`#ag-${state}`} aria-label={tileLabel(state)} class={`tile t${tier}`}>
+                    <a href={`#ag-${state}`} aria-label={tileLabel(state)} class={`tile t${tier} ${lensesFor(state)}`}>
                       <title>{tileLabel(state)}</title>
                       <rect x={x} y={y} width={TILE} height={TILE} rx="4" />
                       <text x={x + TILE / 2} y={y + 23} class="code" text-anchor="middle">{state}</text>
@@ -159,11 +190,18 @@ const role = (a: any, state: string) =>
                       {(o?.data_center_ids ?? []).length > 0 && (
                         <rect x={x + 4} y={y + 4} width="7" height="7" class="dc" />
                       )}
+                      <rect x={x - 2.5} y={y - 2.5} width={TILE + 5} height={TILE + 5} rx="6" class="box" />
                     </a>
                   );
                 })}
               </svg>
               <figcaption>
+                {LENSES.map((l) => (
+                  <p class={`lens-note lens-note-${l.id}`}>
+                    <strong>{l.label}</strong> ({l.what}):{" "}
+                    {l.states.length === 0 ? "none on record." : l.states.map((st) => NAMES[st] ?? st).join(", ") + "."}
+                  </p>
+                ))}
                 <ul class="legend">
                   {TIERS.map((t) => (
                     <>
@@ -320,6 +358,22 @@ const role = (a: any, state: string) =>
   .t4 rect { fill: var(--t4); } .t4 text, .t4 .ring { fill: var(--t4-ink); stroke: var(--t4-ink); }
   .tile text { stroke: none; }
   .tile .ring { fill: none; }
+  .lenses { border: 0; padding: 0; margin: 0.75rem 0 0; display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; font-size: 0.9rem; }
+  .lenses legend { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 0; margin-bottom: 0.25rem; }
+  .lenses label { cursor: pointer; }
+  .lenses .count { color: var(--muted); }
+  .tile .box { fill: none; stroke: none; }
+  .tile { transition: opacity 0.15s; }
+  .lens-note { display: none; font-size: 0.9rem; margin: 0.5rem 0 0; }
+  section:has(#lens-initiative:checked) .tile:not(.in-initiative) { opacity: 0.25; }
+  section:has(#lens-initiative:checked) .tile.in-initiative .box { stroke: var(--ink); stroke-width: 3; }
+  section:has(#lens-initiative:checked) .lens-note-initiative { display: block; }
+  section:has(#lens-leverage:checked) .tile:not(.in-leverage) { opacity: 0.25; }
+  section:has(#lens-leverage:checked) .tile.in-leverage .box { stroke: var(--ink); stroke-width: 3; }
+  section:has(#lens-leverage:checked) .lens-note-leverage { display: block; }
+  section:has(#lens-turnover:checked) .tile:not(.in-turnover) { opacity: 0.25; }
+  section:has(#lens-turnover:checked) .tile.in-turnover .box { stroke: var(--ink); stroke-width: 3; }
+  section:has(#lens-turnover:checked) .lens-note-turnover { display: block; }
   .legend { list-style: none; padding: 0; margin: 0.75rem 0 0; font-size: 0.9rem; }
   .legend li { margin: 0.25rem 0; }
   .swatch {
