@@ -97,10 +97,16 @@ const tileLabel = (state: string) => {
   const change = transitionText(o);
   const dc = (o.data_center_ids ?? []).length;
   const hosts = dc ? ` Hosts ${dc} AI data center project${dc > 1 ? "s" : ""} of 1 GW or more.` : "";
-  return `${NAMES[state]}: ${person(o.holder)}. Tier ${o.tier}, ${o.tier_label}.${change ? ` ${change}` : ""}${hosts}`;
+  const sg = sgKnown && !o.solicitor_general ? " No solicitor general on record." : "";
+  return `${NAMES[state]}: ${person(o.holder)}. Tier ${o.tier}, ${o.tier_label}.${change ? ` ${change}` : ""}${hosts}${sg}`;
 };
 const changing = offices.filter((o: any) => o.transition).length;
 const hosting = offices.filter((o: any) => (o.data_center_ids ?? []).length > 0).length;
+// An older board carries no solicitor general field; the mark then stays out.
+const sgKnown = offices.some((o: any) => "solicitor_general" in o);
+// Nearly every office has a solicitor general, so the map marks the few without one.
+const noSg = (o: any) => sgKnown && o && !o.solicitor_general;
+const withoutSg = offices.filter(noSg).length;
 const ledOrAlone = (o: any) => (o?.tier ?? 0) >= 3;
 const hostsCenter = (o: any) => (o?.data_center_ids ?? []).length > 0;
 // The board names the one action whose removal lowers the most offices' steps,
@@ -202,6 +208,9 @@ const role = (a: any, state: string) =>
                       {(o?.data_center_ids ?? []).length > 0 && (
                         <rect x={x + 4} y={y + 4} width="7" height="7" class="dc" />
                       )}
+                      {noSg(o) && (
+                        <path d={`M${x + 4} ${y + TILE - 4}h8l-8 -8z`} class="sg" />
+                      )}
                     </g>
                   );
                   return (
@@ -231,6 +240,7 @@ const role = (a: any, state: string) =>
                   <li class="group">Also marked</li>
                   <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>New attorney general after the 2026 midterms</strong>{changing === 0 && <> (none recorded yet)</>}</li>
                   <li><span class="swatch dc-key" aria-hidden="true"></span> <strong>AI data center of {gw(board.data_center_threshold_mw)} or more</strong>{hosting === 0 && <> (none recorded yet)</>}</li>
+                  {sgKnown && <li><span class="swatch sg-key" aria-hidden="true"></span> <strong>No solicitor general on record</strong> ({withoutSg} of {offices.length} offices; the rest have one)</li>}
                 </ul>
               </figcaption>
             </figure>
@@ -284,6 +294,7 @@ const role = (a: any, state: string) =>
                     <th scope="col">Actions in the window</th>
                     <th scope="col">Changing hands</th>
                     <th scope="col">AI data centers</th>
+                    {sgKnown && <th scope="col">Solicitor general</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -299,6 +310,11 @@ const role = (a: any, state: string) =>
                         {o.transition_overdue && <small>The roster is behind: this date has passed.</small>}
                       </td>
                       <td>{(o.data_center_ids ?? []).length || "—"}</td>
+                      {sgKnown && (
+                        <td>{o.solicitor_general
+                          ? <a href={o.solicitor_general.sources[0]}>{o.solicitor_general.holder ?? o.solicitor_general.title}</a>
+                          : "—"}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -426,7 +442,10 @@ const role = (a: any, state: string) =>
   .swatch.t2 { background: var(--t2); color: var(--t2-ink); }
   .swatch.t3 { background: var(--t3); color: var(--t3-ink); }
   .swatch.t4 { background: var(--t4); color: var(--t4-ink); }
-  .tile .dc { stroke: none; }
+  .tile .dc, .tile .sg { stroke: none; }
+  .t0 .sg { fill: var(--t0-ink); } .t1 .sg { fill: var(--t1-ink); } .t2 .sg { fill: var(--t2-ink); }
+  .t3 .sg { fill: var(--t3-ink); } .t4 .sg { fill: var(--t4-ink); }
+  .sg-key { width: 0; height: 0; border-radius: 0; background: none; border-style: solid; border-width: 0.6rem 0 0 0.6rem; border-color: transparent transparent transparent var(--ink); margin: 0 0.4rem; }
   .t0 .dc { fill: var(--t0-ink); } .t1 .dc { fill: var(--t1-ink); } .t2 .dc { fill: var(--t2-ink); }
   .t3 .dc { fill: var(--t3-ink); } .t4 .dc { fill: var(--t4-ink); }
   .callout { border-left: 3px solid var(--accent); padding: 0.4rem 0 0.4rem 0.8rem; margin: 1rem 0; }
