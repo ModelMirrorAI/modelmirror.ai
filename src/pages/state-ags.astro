@@ -99,6 +99,8 @@ const tileLabel = (state: string) => {
   const hosts = dc ? ` Hosts ${dc} AI data center project${dc > 1 ? "s" : ""} of 1 GW or more.` : "";
   return `${NAMES[state]}: ${person(o.holder)}. Tier ${o.tier}, ${o.tier_label}.${change ? ` ${change}` : ""}${hosts}`;
 };
+const changing = offices.filter((o: any) => o.transition).length;
+const hosting = offices.filter((o: any) => (o.data_center_ids ?? []).length > 0).length;
 const role = (a: any, state: string) =>
   a.states.length === 1 ? "Alone" : a.lead === state ? "Led" : "Joined";
 ---
@@ -131,9 +133,7 @@ const role = (a: any, state: string) =>
             <h2 id="map-h">How far each office has gone</h2>
             <p>
               Each square is one state, shaded by the highest step its office reached in the last
-              {" "}{board.window_days} days. The number in the square is the same step. A ring marks an office
-              changing hands, and a small square a state that hosts an AI data center project of
-              {" "}{gw(board.data_center_threshold_mw)} or more. Select a state to see its actions.
+              {" "}{board.window_days} days. The number in the square is the same step. Select a state to see its actions.
             </p>
             <figure class="ag-map">
               <svg
@@ -165,8 +165,8 @@ const role = (a: any, state: string) =>
                   {TIERS.map((t) => (
                     <li><span class={`swatch t${t.tier}`} aria-hidden="true">{t.tier}</span> <strong>{t.label}</strong> {t.what}</li>
                   ))}
-                  <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>Changing hands</strong> A successor has been chosen, or the race is not yet called.</li>
-                  <li><span class="swatch dc-key" aria-hidden="true"></span> <strong>Large AI data center</strong> A project of {gw(board.data_center_threshold_mw)} or more stated capacity, not cancelled. Context only: it never moves the step.</li>
+                  <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>New attorney general after the 2026 midterms</strong>{changing === 0 && <> (none recorded yet)</>}</li>
+                  <li><span class="swatch dc-key" aria-hidden="true"></span> <strong>AI data center of {gw(board.data_center_threshold_mw)} or more</strong>{hosting === 0 && <> (none recorded yet)</>}</li>
                 </ul>
               </figcaption>
             </figure>
@@ -175,6 +175,25 @@ const role = (a: any, state: string) =>
               judgment of merit or outcome, and an investigation never announced does not show. "None recorded" means
               none on record, not none taken. Defending a state AI law against a developer's challenge is listed with
               the office's actions but does not raise its step.
+            </p>
+          </section>
+
+          <section aria-labelledby="method-h">
+            <h2 id="method-h">How the step is scored</h2>
+            <p>
+              An AI model (Anthropic's Claude) reads each attorney general's announcements, records every action
+              against an AI developer, and classifies it: what kind of action it is, and whether the office acted
+              alone, led other states, or joined them. Each record cites the office's own announcement, and every
+              change to the registry is reviewed before it is published.
+            </p>
+            <p>
+              A fixed rule then turns those records into the step, with no further judgment. Each kind of action
+              sits on a rung: a letter is step 1; an amicus brief, or joining an investigation, settlement or suit
+              another state leads, is step 2; the office's own investigation or settlement is step 3; its own
+              lawsuit, or leading a multistate one, is step 4. An office's step is the highest rung it reached in the
+              last {board.window_days} days. Defending a state AI law and policy advocacy are listed but never
+              scored. The full rules are in the <a href={method}>method</a>, and every record is in the
+              {" "}<a href={registry}>registry</a>.
             </p>
           </section>
 
