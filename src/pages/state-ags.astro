@@ -9,10 +9,10 @@ import boardJson from "../data/state-ags/board.json";
 import source from "../data/state-ags/source.json";
 
 const board: any = boardJson;
-const { repo, sha } = source;
+const { repo, branch } = source;
 const method = `https://github.com/${repo}/blob/main/docs/method.md`;
 const registry = `https://github.com/${repo}/blob/main/data/state-ags.yaml`;
-const published = `https://github.com/${repo}/blob/${sha}/board.json`;
+const published = `https://github.com/${repo}/blob/${branch}/board.json`;
 
 // Display names and the tile grid. Positions only place a square per
 // jurisdiction, so every state, DC included, is the same size and none is
