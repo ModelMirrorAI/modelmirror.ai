@@ -6,11 +6,22 @@
 # building here first turns that into a red scheduled run, which notifies the
 # maintainer, instead of a silent failure inside Cloudflare. Only `poke` holds
 # the deploy-hook secret.
+#
+# The state-ags board workflow also dispatches this run each time it publishes
+# a changed board, passing the board commit. The raw file host caches the
+# branch copy for a few minutes, so the build first waits until the branch
+# serves that commit's board; Cloudflare's own build, started by `poke`, then
+# reads the same fresh copy.
 name: rebuild
 on:
   schedule:
     - cron: "37 11 * * *"   # 11:37 UTC daily
   workflow_dispatch:
+    inputs:
+      board_sha:
+        description: "state-ags board commit to wait for (optional)"
+        required: false
+        default: ""
 permissions: {}
 concurrency:
   group: rebuild
@@ -18,7 +29,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -29,6 +40,26 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+
+      - name: Wait for the published board
+        if: inputs.board_sha != ''
+        env:
+          BOARD_SHA: ${{ inputs.board_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BOARD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "board_sha is not a commit id"; exit 1; }
+          base=https://raw.githubusercontent.com/ModelMirrorAI/state-ags
+          curl -fsS --retry 3 -o "$RUNNER_TEMP/want.json" "$base/$BOARD_SHA/board.json"
+          for _ in $(seq 1 30); do
+            curl -fsS --retry 3 -o "$RUNNER_TEMP/have.json" "$base/refs/heads/board/board.json"
+            if cmp -s "$RUNNER_TEMP/want.json" "$RUNNER_TEMP/have.json"; then
+              echo "The board branch serves $BOARD_SHA."
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "The board branch still serves an older board after 15 minutes."
+          exit 1
 
       - name: Install
         run: npm ci --no-audit --no-fund
