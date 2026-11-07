@@ -6,7 +6,11 @@
 // build and fails closed:
 // a missing or malformed board stops the build, so Pages keeps the last good
 // deploy.
-import { mkdir, writeFile } from "node:fs/promises";
+//
+// With STATE_AGS_BOARD set to a local file, the build reads that board instead
+// of the branch. The state-ags board workflow uses it to render the page's map
+// from the board it is about to publish, before the branch serves it.
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 const REPO = "ModelMirrorAI/state-ags";
 const BRANCH = "board";
@@ -17,12 +21,16 @@ async function get(url, accept) {
   return r;
 }
 
-const board = await (await get(`https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/board.json`, "application/json")).json();
+const local = process.env.STATE_AGS_BOARD;
+const origin = local || BRANCH;
+const board = local
+  ? JSON.parse(await readFile(local, "utf8"))
+  : await (await get(`https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/board.json`, "application/json")).json();
 if (board.method !== "ag-ai-ambition-v1" || !Array.isArray(board.offices) || !Array.isArray(board.actions)) {
-  throw new Error(`state-ags: board.json on ${BRANCH} is not an ag-ai-ambition-v1 board`);
+  throw new Error(`state-ags: board.json from ${origin} is not an ag-ai-ambition-v1 board`);
 }
 
 await mkdir("src/data/state-ags", { recursive: true });
 await writeFile("src/data/state-ags/board.json", JSON.stringify(board, null, 2));
 await writeFile("src/data/state-ags/source.json", JSON.stringify({ repo: REPO, branch: BRANCH }, null, 2));
-console.log(`state-ags: ${board.offices.length} offices, ${board.actions.length} actions as of ${board.as_of} from ${BRANCH}`);
+console.log(`state-ags: ${board.offices.length} offices, ${board.actions.length} actions as of ${board.as_of} from ${origin}`);
