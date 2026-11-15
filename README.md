@@ -1,10 +1,10 @@
 # modelmirror.ai
 
-The umbrella site for Model Mirror LLC: one page plus privacy and terms. Static, Astro, Cloudflare Pages. Same skeleton and stylesheet as fedcourts.ai. A prebuild step fetches data from other repositories (`scripts/fetch-*.mjs`), so `.github/workflows/rebuild.yml` rebuilds daily: it runs the build first and pokes the Cloudflare Pages deploy hook only if that passes.
+The umbrella site for Model Mirror LLC: a home page, the state attorneys general board, the billable-hours analysis, privacy and terms. Static, Astro, Cloudflare Pages. Same skeleton and stylesheet as fedcourts.ai. A prebuild step fetches data from other repositories (`scripts/fetch-*.mjs`), so `.github/workflows/rebuild.yml` rebuilds daily: it runs the build first and pokes the Cloudflare Pages deploy hook only if that passes.
 
 ## Editing
 
-Content is MDX under `src/pages/`. Edit in the GitHub UI, open a PR, and Cloudflare Pages attaches a preview URL to the branch. To add a project, copy the `<li>` block in `src/pages/index.mdx`.
+Content is MDX under `src/pages/`, apart from the state attorneys general board (`src/pages/state-ags.astro`). Edit in the GitHub UI, open a PR, and Cloudflare Pages attaches a preview URL to the branch. To add a project, copy the `<li>` block in `src/pages/index.mdx`.
 
 ## One-time setup
 
