@@ -121,6 +121,9 @@ const pivotFalls = pivot
 const largeAt: number | null = board?.large_coalition_offices ?? null;
 // Each lens outlines the offices it matches and fades the rest; CSS reads the
 // checked radio, so the map works without JavaScript.
+// An uncalled race is a pending change, not a new attorney general, so the
+// turnover wording names it whenever the board carries one.
+const anyUncalled = offices.some((o: any) => o?.transition?.status === "uncalled");
 const LENSES = [
   { id: "led", label: "Led or acted alone", what: "step 3 or 4", match: (o: any) => ledOrAlone(o) },
   {
@@ -131,8 +134,12 @@ const LENSES = [
   },
   {
     id: "turnover",
-    label: "Led or acted alone, new attorney general coming in",
-    what: "step 3 or 4, and the office changes hands after the 2026 midterms",
+    label: anyUncalled
+      ? "Led or acted alone, new attorney general coming in or race uncalled"
+      : "Led or acted alone, new attorney general coming in",
+    what: anyUncalled
+      ? "step 3 or 4, and the office changes hands after the 2026 midterms or its race is not yet called"
+      : "step 3 or 4, and the office changes hands after the 2026 midterms",
     match: (o: any) => ledOrAlone(o) && Boolean(o?.transition),
   },
 ].map((l) => ({ ...l, states: offices.filter(l.match).map((o: any) => o.state as string) }));
@@ -144,14 +151,15 @@ const role = (a: any, state: string) =>
 ---
 <Base
   title="State attorneys general and AI"
-  description="How far each state attorney general goes in acting against AI developers, the actions behind it, and which states act together."
+  description="How far each state attorney general goes in acting against AI developers, and the actions behind it."
 >
   <h1>State attorneys general and AI</h1>
   <p class="intro">
     State attorneys general act against AI developers mostly outside the federal courts: in state-court lawsuits,
     in investigations and settlements, and in letters signed by many states at once. This page shows, for every
     state and the District of Columbia, the furthest step its attorney general has taken on the record, and the
-    actions behind it. Each action is drawn from the office's own announcement.
+    actions behind it. Each action is drawn from the office's own announcement, or from press reports of it
+    where the announcement could not be read.
   </p>
 
   {!board ? (
@@ -236,7 +244,7 @@ const role = (a: any, state: string) =>
                     </>
                   ))}
                   <li class="group">Also marked</li>
-                  <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>New attorney general after the 2026 midterms</strong>{changing === 0 && <> (none recorded yet)</>}</li>
+                  <li><span class="swatch ring-key" aria-hidden="true"></span> <strong>New attorney general after the 2026 midterms{anyUncalled && <>, or race not yet called</>}</strong>{changing === 0 && <> (none recorded yet)</>}</li>
                   <li><span class="swatch dc-key" aria-hidden="true"></span> <strong>AI data center of {gw(board.data_center_threshold_mw)} or more</strong>{hosting === 0 && <> (none recorded yet)</>}</li>
                   {unitKnown && <li><span class="swatch tu-key" aria-hidden="true"></span> <strong>Dedicated technology or privacy enforcement unit</strong> ({withUnit} of {offices.length} offices)</li>}
                 </ul>
@@ -263,10 +271,12 @@ const role = (a: any, state: string) =>
           <section aria-labelledby="method-h">
             <h2 id="method-h">How the step is scored</h2>
             <p>
-              An AI model (Anthropic's Claude) reads each attorney general's announcements, records every action
-              against an AI developer, and classifies it: what kind of action it is, and whether the office acted
-              alone, led other states, or joined them. Each record cites the office's own announcement, and every
-              change to the registry is reviewed before it is published.
+              An AI model (Anthropic's Claude) searches each attorney general's newsroom every week and drafts a
+              record of each action it finds against an AI developer: what kind of action it is, and whether the
+              office acted alone, led other states, or joined them. A person reads every draft against the rule
+              before it is listed, and adds actions the search missed, so the registry is hand-curated: the model
+              drafts and never decides what is listed. Each record cites the office's own announcement, or press
+              reports of it where the announcement could not be read.
             </p>
             <p>
               A fixed rule then turns those records into the step, with no further judgment. Each kind of action
